@@ -123,6 +123,8 @@ typedef struct {
 #ifdef OPENSSL
     MQTTAsync_SSLOptions ssl_opts;
     const char *ca_file;
+    const char *dev_cert;
+    const char *dev_key;
 #endif
     MQTTAsync client;
 
@@ -479,15 +481,17 @@ static int lmqtt_client(lua_State* L) {
 
 #ifdef OPENSSL
     const char *ca_file = luaL_optstring(L, 5, NULL); //is being strdup'd below
+    const char *dev_cert = luaL_optstring(L, 6, NULL);
+    const char *dev_key = luaL_optstring(L, 7, NULL);
 #endif
 
-    if (lua_gettop(L) > 5) {
-        luaL_checktype(L, 6, LUA_TBOOLEAN);
+    if (lua_gettop(L) > 7) {
+        luaL_checktype(L, 8, LUA_TBOOLEAN);
         persistence =
-                lua_toboolean(L, 6) ?
+                lua_toboolean(L, 8) ?
                         MQTTCLIENT_PERSISTENCE_DEFAULT :
                         MQTTCLIENT_PERSISTENCE_NONE;
-        persistence_folder = luaL_optstring(L, 7, NULL); //is being strdup'd in MQTTClient_create
+        persistence_folder = luaL_optstring(L, 9, NULL); //is being strdup'd in MQTTClient_create
     }
 
     // Allocate mqtt structure and initialize
@@ -500,6 +504,8 @@ static int lmqtt_client(lua_State* L) {
     mqtt->persistence = persistence;
 #ifdef OPENSSL
     mqtt->ca_file = (ca_file ? strdup(ca_file) : NULL); //save for use during mqtt_connect
+    mqtt->dev_cert = (dev_cert ? strdup(dev_cert) : NULL);
+    mqtt->dev_key = (dev_key ? strdup(dev_key) : NULL);
 #endif
     mtx_init(&mqtt->mtx, NULL, NULL, 0);
 
@@ -569,6 +575,8 @@ static int lmqtt_connect(lua_State* L) {
 #ifdef OPENSSL
     MQTTAsync_SSLOptions ssl_opts = MQTTAsync_SSLOptions_initializer;
     ssl_opts.trustStore = mqtt->ca_file; //has been strdup'd already
+    ssl_opts.keyStore = mqtt->dev_cert;
+    ssl_opts.privateKey = mqtt->dev_key;
     ssl_opts.enableServerCertAuth = (ssl_opts.trustStore != NULL);
     bcopy(&ssl_opts, &mqtt->ssl_opts, sizeof(MQTTAsync_SSLOptions));
 #endif
@@ -841,6 +849,18 @@ static int lmqtt_client_gc(lua_State *L) {
             free((char*) mqtt->ca_file);
             mqtt->ca_file = NULL;
             mqtt->ssl_opts.trustStore = NULL;
+        }
+
+        if (mqtt->dev_cert) {
+            free((char*) mqtt->dev_cert);
+            mqtt->dev_cert = NULL;
+            mqtt->ssl_opts.keyStore = NULL;
+        }
+
+        if (mqtt->dev_key) {
+            free((char*)mqtt->dev_key);
+            mqtt->dev_key = NULL;
+            mqtt->ssl_opts.privateKey = NULL;
         }
 #endif
 
