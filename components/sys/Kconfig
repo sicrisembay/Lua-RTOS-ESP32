@@ -1678,6 +1678,11 @@ menu "Lua RTOS"
                bool "Include Lua VM module in build"
                default y
 
+            config LUA_RTOS_LUA_USE_AWS
+               depends on LUA_RTOS_LUA_USE_NET
+               bool "Include AWS module in build"
+               default y
+
             config LUA_RTOS_LUA_USE_MQTT
                depends on LUA_RTOS_LUA_USE_NET
                bool "Include MQTT module in build"
